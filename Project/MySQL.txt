@@ -1,0 +1,114 @@
+MySQL - Guilherme Galluzzi Couto Paes
+
+4.1 MySQL
+
+=================
+4.1.1 Get people who have visited a particular country 
+
+
+delimiter //
+create procedure get_ppl_visited_country(x varchar(52))
+deterministic
+begin
+select p.personid, p.personname, c.name, h.datearrived, country.name
+from person p
+inner join hasvisitedcity h
+on p.personid = h.personid
+inner join city c
+on h.cityid = c.id
+inner join country
+on c.countrycode = country.code
+where country.name LIKE CONCAT('%', x, '%');
+end
+//
+delimiter ;
+
+
+
+==========
+4.1.2 Rename Continent 
+
+#First is necessary to alter column type of table country
+alter table country
+modify column Continent enum('Asia','Europe','North America','Africa','Oceania','Antarctica','South America', 'Americas', 'Australia', 'South Pole')
+
+#Now moving on to the function
+
+delimiter //
+CREATE FUNCTION ren_continent(c_name Varchar(35))
+RETURNS Varchar(35)
+DETERMINISTIC
+BEGIN
+	IF c_name = "Americas" THEN
+		UPDATE country SET Continent = c_name where Continent = "North America" or Continent = "South America";
+	ELSEIF c_name = "Australia" THEN
+		UPDATE country SET Continent = c_name where Continent = "Oceania";
+	ELSEIF c_name = "South Pole" THEN
+		UPDATE country SET Continent = c_name where Continent = "Antartica";
+	END IF;
+	RETURN "The continent has been updated";
+END//
+delimiter ;
+
+#an example of running the function
+select ren_continent("Americas");
+
+============
+4.1.3 Country with biggest population per continent 
+
+select continent, name, max(population)
+from country
+where population > 0
+group by continent;
+
+
+===========
+4.1.4 Minimum city population of youngest person(s) 
+
+
+select c.name, p.personname, p.age, min(c.population) as population
+from city c
+inner join hasvisitedcity h
+on c.id = h.cityid
+inner join person p
+on h.personid = p.personid
+where p.age in (select min(age) from person);
+
+
+=============
+4.1.5 Update City Populations 
+
+#check the actual population from districts
+
+SELECT name, district, population FROM city
+WHERE district = "Eastern Cape" or district = "Free State" or district = "Western Cape";
+
+#Updating city populations according to district
+
+UPDATE city
+SET Population =
+CASE
+	WHEN District="Eastern Cape" THEN Population + 1000
+	WHEN District="Free State" THEN Population + 2000
+	WHEN District="Western Cape" THEN Population - 10000
+	ELSE Population
+END;
+
+
+============
+**4.1.6 Country Independence 
+
+
+SELECT name, indepyear, 
+(CASE 
+	WHEN indepyear IS NULL THEN "n/a" 
+	WHEN indepyear > 2008 THEN CONCAT("New ", governmentform)
+	WHEN indepyear BETWEEN 1969 AND 2008 THEN CONCAT("Modern ", governmentform)
+	WHEN indepyear BETWEEN 1918 AND 1968 THEN CONCAT("Early ", governmentform)
+	WHEN indepyear < 1918 THEN CONCAT("Old ", governmentform)
+	WHEN population > 100000000 THEN CONCAT("Large ", governmentform)
+	ELSE indepyear END) as "Desc"
+FROM country;
+
+
+
